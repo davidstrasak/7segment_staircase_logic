@@ -1,0 +1,9 @@
+Dependencies for Project 'automat', Target 'Demo_01': (DO NOT MODIFY !)
+F (.\Source\main.c)(0x68F771A8)(-c --cpu Cortex-M3 -D__EVAL -g -O0 --apcs=interwork -I.\Libraries-I "C:\Program Files\Keil\ARM\RV31\INC"-I "C:\Program Files\Keil\ARM\CMSIS\Include"-I "C:\Program Files\Keil\ARM\Inc\ST\STM32F10x"-o .\output\main.o --omf_browse .\output\main.crf --depend .\output\main.d)
+I (.\Libraries\stm32f10x.h)(0x4C85F400)
+I (.\Libraries\core_cm3.h)(0x4C85F400)
+I (C:\Program Files\Keil\ARM\ARMCC\include\stdint.h)(0x51C80BA4)
+I (.\Libraries\system_stm32f10x.h)(0x4C85F402)
+F (.\Libraries\startup_stm32f10x_md_vl.s)(0x4EAF2EE2)(--cpu Cortex-M3 --pd "__EVAL SETA 1" -g --apcs=interwork -I "C:\Program Files\Keil\ARM\RV31\INC"-I "C:\Program Files\Keil\ARM\CMSIS\Include"-I "C:\Program Files\Keil\ARM\Inc\ST\STM32F10x"--list .\output\startup_stm32f10x_md_vl.lst --xref -o .\output\startup_stm32f10x_md_vl.o --depend .\output\startup_stm32f10x_md_vl.d)
+F (.\Libraries\core_cm3.c)(0x4C85F400)(-c --cpu Cortex-M3 -D__EVAL -g -O0 --apcs=interwork -I.\Libraries-I "C:\Program Files\Keil\ARM\RV31\INC"-I "C:\Program Files\Keil\ARM\CMSIS\Include"-I "C:\Program Files\Keil\ARM\Inc\ST\STM32F10x"-o .\output\core_cm3.o --omf_browse .\output\core_cm3.crf --depend .\output\core_cm3.d)
+I (C:\Program Files\Keil\ARM\ARMCC\include\stdint.h)(0x51C80BA4)
