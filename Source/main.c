@@ -21,6 +21,14 @@
 
 
 /*Definice*/
+#define A_seg  (1 << 7) 
+#define B_seg  (1 << 6) 
+#define C_seg  (1 << 5) 
+#define D_seg  (1 << 4) 
+#define E_seg  (1 << 3) 
+#define F_seg  (1 << 2) 
+#define G_seg  (1 << 1) 
+#define DP_seg  (1 << 0) 
 
 /*Globalni promenne*/
 
@@ -45,20 +53,66 @@ void SystemInit(void){
 
 /*Main funkce*/
 int main(void){
+	int counter = 0;
+	volatile uint32_t message = 0;
+	volatile uint32_t nextBit;
+	
 	RCC_Configuration(); //inicializace hodin
 	GPIO_Configuration(); //inicializace GPIO
+	
+	//GPIOB->BSRR|=(1 << (5 + 16));
+	//GPIOB->BSRR|=(1 << (9 + 16));
+	GPIOB->BSRR|=(1 << (5));
+	GPIOB->BSRR|=(1 << (9));
+	GPIOC->BSRR|=(1 << (11));
+	GPIOC->BSRR|=(1 << (8));
+	
+	while(counter < 15){
+		GPIOC->BSRR|=(1<<(10));
+		
+		GPIOA->BSRR|=(1 << (12));
+		GPIOA->BSRR|=(1 << (12 + 16));
+
+		counter++;
+	}
+	
+	counter = 0;
+	
+	
 	/*Nekonecna smycka*/
 	while(1){
-		if(GPIOA->IDR&0x1){//je PA0 stisknuto??
-			GPIOC->BSRR|=0x100;//ANO rozsvitime LED na PC8	
-			GPIOA->BSRR|=(1<<(12+16));
-			GPIOA->BSRR|=(1<<(11+16));
-		}else{
-			GPIOC->BSRR|=0x1000000;//ne zhasneme LED na PC8
-			GPIOA->BSRR|=(1<<12);
-			GPIOA->BSRR|=(1<<11);
+		if(counter == 0){
+			message = (A_seg | B_seg | C_seg | E_seg | F_seg | G_seg) << 1;
 		}
-
+		
+		message = message >> 1;
+		
+		nextBit = message & 1;
+		
+		if(counter < 8){
+			volatile uint32_t temp = GPIOC->ODR;
+			volatile uint32_t* temp_p = &GPIOC->ODR;
+			temp &= ~(1 << 10);
+			temp |= (~nextBit << 10);
+			*temp_p = temp;
+		}
+		else if(counter < 16){
+		GPIOC->BSRR|=(1<<(10));
+		}
+		else{
+			counter = 0;
+			continue;
+		}
+		
+		GPIOA->BSRR|=(1 << (12));
+		GPIOA->BSRR|=(1 << (12 + 16));
+		counter++;
+		if(counter < 8){
+			Delay(100000);
+		}
+		else if (counter == 8){
+			Delay(1000000);
+		}
 	}
 }
 /*Inicializace RCC*/
@@ -90,22 +144,28 @@ void RCC_Configuration(void){
   	{
   	}
 
-	RCC->APB2ENR|=0x14;//pocoleni PA a PC
+	RCC->APB2ENR|=0x1C; // Enable PA (0x4), PB (0x8), and PC (0x10).
 		
 }
 /*Inicializace GPIO*/
 void GPIO_Configuration(void){
-	GPIOC->CRH&= ~(0xF << 0);//PC8
-	GPIOC->CRH|=0x3;  //PC8 jako PP output
-
-	GPIOA->CRL&= ~(0xF << 0);
-	GPIOA->CRL|=0x4;//PA0 jako Floating input
-	
 	GPIOA->CRH &= ~(0xF << 16);		// Vycistit bity 16-19 (pro PA12)
 	GPIOA->CRH |= (3 << 16);	    // Nastavit PA12 jako PP output 50MHz
 	
-	GPIOA->CRH &= ~(0xF << 12);		// Vycistit bity 12-15 (pro PA11)
-	GPIOA->CRH |= (3 << 12);	    // Nastavit PA112 jako PP output 50MHz
+	GPIOC->CRH &= ~(0xF << 8);//PC10
+	GPIOC->CRH |= (3 << 8);  //PC10 jako PP output
+	
+	GPIOC->CRH &= ~(0xF << 12);//PC11
+	GPIOC->CRH |= (3 << 12);  //PC11 jako PP output
+	
+	GPIOB->CRL &= ~(0xF << 20);//PB5
+	GPIOB->CRL |= (3 << 20);  //PB5 jako PP output
+	
+	GPIOB->CRH &= ~(0xF << 4);//PB9
+	GPIOB->CRH |= (3 << 4);  //PB9 jako PP output
+	
+	GPIOC->CRH &= ~(0xF << 0);//PB8
+	GPIOC->CRH |= (3 << 0);  //PB8 jako PP output
 }
 
 /*Delay smycka zpozduje zhruba o nCount tiku jadra*/
