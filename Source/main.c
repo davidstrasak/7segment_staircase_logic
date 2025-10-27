@@ -52,9 +52,11 @@ int main(void){
 		if(GPIOA->IDR&0x1){//je PA0 stisknuto??
 			GPIOC->BSRR|=0x100;//ANO rozsvitime LED na PC8	
 			GPIOA->BSRR|=(1<<(12+16));
+			GPIOA->BSRR|=(1<<(11+16));
 		}else{
 			GPIOC->BSRR|=0x1000000;//ne zhasneme LED na PC8
 			GPIOA->BSRR|=(1<<12);
+			GPIOA->BSRR|=(1<<11);
 		}
 
 	}
@@ -101,6 +103,9 @@ void GPIO_Configuration(void){
 	
 	GPIOA->CRH &= ~(0xF << 16);		// Vycistit bity 16-19 (pro PA12)
 	GPIOA->CRH |= (3 << 16);	    // Nastavit PA12 jako PP output 50MHz
+	
+	GPIOA->CRH &= ~(0xF << 12);		// Vycistit bity 12-15 (pro PA11)
+	GPIOA->CRH |= (3 << 12);	    // Nastavit PA112 jako PP output 50MHz
 }
 
 /*Delay smycka zpozduje zhruba o nCount tiku jadra*/

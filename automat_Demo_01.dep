@@ -1,5 +1,5 @@
 Dependencies for Project 'automat', Target 'Demo_01': (DO NOT MODIFY !)
-F (.\Source\main.c)(0x68F771A8)(-c --cpu Cortex-M3 -D__EVAL -g -O0 --apcs=interwork -I.\Libraries-I "C:\Program Files\Keil\ARM\RV31\INC"-I "C:\Program Files\Keil\ARM\CMSIS\Include"-I "C:\Program Files\Keil\ARM\Inc\ST\STM32F10x"-o .\output\main.o --omf_browse .\output\main.crf --depend .\output\main.d)
+F (.\Source\main.c)(0x68F778AE)(-c --cpu Cortex-M3 -D__EVAL -g -O0 --apcs=interwork -I.\Libraries-I "C:\Program Files\Keil\ARM\RV31\INC"-I "C:\Program Files\Keil\ARM\CMSIS\Include"-I "C:\Program Files\Keil\ARM\Inc\ST\STM32F10x"-o .\output\main.o --omf_browse .\output\main.crf --depend .\output\main.d)
 I (.\Libraries\stm32f10x.h)(0x4C85F400)
 I (.\Libraries\core_cm3.h)(0x4C85F400)
 I (C:\Program Files\Keil\ARM\ARMCC\include\stdint.h)(0x51C80BA4)
