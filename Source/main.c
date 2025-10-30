@@ -30,6 +30,18 @@
 #define G_seg  (1 << 1) 
 #define DP_seg  (1 << 0) 
 
+#define Number0 (A_seg | B_seg | C_seg | D_seg | E_seg | F_seg)
+#define Number1 (B_seg | C_seg)
+#define Number2 (A_seg | B_seg | D_seg | E_seg | G_seg)
+#define Number3 (A_seg | B_seg | C_seg | D_seg | G_seg)
+#define Number4 (B_seg | C_seg | F_seg | G_seg)
+#define Number5 (A_seg | C_seg | D_seg | F_seg | G_seg)
+#define Number6 (A_seg | C_seg | D_seg | E_seg | F_seg | G_seg)
+#define Number7 (A_seg | B_seg | C_seg)
+#define Number8 (A_seg | B_seg | C_seg | D_seg | E_seg | F_seg | G_seg)
+#define Number9 (A_seg | B_seg | C_seg | D_seg | F_seg | G_seg)
+#define Number_OFF 0x00
+
 /*Globalni promenne*/
 
 
@@ -37,6 +49,8 @@
 void RCC_Configuration(void);
 void GPIO_Configuration(void);
 void Delay(vu32 nCount);
+void setNumber(int leftInput, int rightInput);
+void removeFirst(void);
 
 /*Metody*/
 
@@ -60,18 +74,21 @@ int main(void){
 	RCC_Configuration(); //inicializace hodin
 	GPIO_Configuration(); //inicializace GPIO
 	
-	//GPIOB->BSRR|=(1 << (5 + 16));
-	//GPIOB->BSRR|=(1 << (9 + 16));
-	GPIOB->BSRR|=(1 << (5));
-	GPIOB->BSRR|=(1 << (9));
-	GPIOC->BSRR|=(1 << (11));
-	GPIOC->BSRR|=(1 << (8));
+	GPIOA->BSRR|=(1 << (10));
+	GPIOD->BSRR|=(1 << (2));
 	
 	while(counter < 15){
-		GPIOC->BSRR|=(1<<(10));
+		// timhle bych dostal full sviticich ledek
+		//GPIOC->BSRR|=(1<<(10 + 16));
 		
-		GPIOA->BSRR|=(1 << (12));
-		GPIOA->BSRR|=(1 << (12 + 16));
+		// timto bych mel dostat full nesviticich ledek
+		GPIOC->BSRR|=(1<<(6));
+		GPIOC->BSRR|=(1<<(7));
+		GPIOB->BSRR|=(1<<(5));
+		GPIOB->BSRR|=(1<<(6));
+		
+		GPIOC->BSRR|=(1 << (12));
+		GPIOC->BSRR|=(1 << (12 + 16));
 
 		counter++;
 	}
@@ -81,40 +98,176 @@ int main(void){
 	
 	/*Nekonecna smycka*/
 	while(1){
-		if(counter == 0){
-			message = (A_seg | B_seg | C_seg | E_seg | F_seg | G_seg) << 1;
-		}
+		GPIOA->BSRR|=(1 << (10+16));
+		GPIOD->BSRR|=(1 << (2));
+		setNumber(1,5);
+		Delay(1000000);
+		removeFirst();
+		Delay(1000000);
+		GPIOA->BSRR|=(1 << (10));
+		GPIOD->BSRR|=(1 << (2+16));
+		setNumber(8,8);
+		Delay(1000000);
+		removeFirst();
+		Delay(1000000);
+	}
+}
+
+void setNumber(int leftInput, int rightInput)
+{
+	int messageLeft;
+	int messageRight;
+	int counter = 0;
+	int nextBitLeft;
+	int nextBitRight;
+	
+		switch(leftInput){
+		case 0:
+			messageLeft = Number0;
+			break;
+		case 1:
+			messageLeft = Number1;
+			break;
+		case 2:
+			messageLeft = Number2;
+			break;
+		case 3:
+			messageLeft = Number3;
+			break;
+		case 4:
+			messageLeft = Number4;
+			break;
+		case 5:
+			messageLeft = Number5;
+			break;
+		case 6:
+			messageLeft = Number6;
+			break;
+		case 7:
+			messageLeft = Number7;
+			break;
+		case 8:
+			messageLeft = Number8;
+			break;
+		case 9:
+			messageLeft = Number9;
+			break;
+		default:
+			messageLeft = Number_OFF;
+			break;
+	}
+	
+	switch(rightInput){
+		case 0:
+			messageRight = Number0;
+			break;
+		case 1:
+			messageRight = Number1;
+			break;
+		case 2:
+			messageRight = Number2;
+			break;
+		case 3:
+			messageRight = Number3;
+			break;
+		case 4:
+			messageRight = Number4;
+			break;
+		case 5:
+			messageRight = Number5;
+			break;
+		case 6:
+			messageRight = Number6;
+			break;
+		case 7:
+			messageRight = Number7;
+			break;
+		case 8:
+			messageRight = Number8;
+			break;
+		case 9:
+			messageRight = Number9;
+			break;
+		default:
+			messageRight = Number_OFF;
+			break;
+	}
+	
+	messageLeft = messageLeft << 1;
+	messageRight = messageRight << 1;
+	
+	GPIOC->BSRR|=(1 << (6));
+	GPIOB->BSRR|=(1 << (5));
+
+	while(counter != -1)
+	{
 		
-		message = message >> 1;
+		messageLeft = messageLeft >> 1;
+		messageRight = messageRight >> 1;
 		
-		nextBit = message & 1;
+		nextBitLeft = messageLeft & 1;
+		nextBitRight = messageRight & 1;
 		
 		if(counter < 8){
-			volatile uint32_t temp = GPIOC->ODR;
-			volatile uint32_t* temp_p = &GPIOC->ODR;
-			temp &= ~(1 << 10);
-			temp |= (~nextBit << 10);
-			*temp_p = temp;
-		}
-		else if(counter < 16){
-		GPIOC->BSRR|=(1<<(10));
+			if(nextBitLeft == 1)
+			{
+				GPIOC->BSRR|=(1<<(7 + 16)); // obracena logika
+			} 
+			else
+			{
+				GPIOC->BSRR|=(1<<(7));
+			}
+			if(nextBitRight == 1)
+			{
+				GPIOB->BSRR|=(1<<(6 + 16)); // obracena logika
+			}
+			else
+			{
+				GPIOB->BSRR|=(1<<(6)); 
+			}
 		}
 		else{
-			counter = 0;
+			counter = -1;
 			continue;
 		}
 		
-		GPIOA->BSRR|=(1 << (12));
-		GPIOA->BSRR|=(1 << (12 + 16));
+		GPIOC->BSRR|=(1 << (12));
+		GPIOC->BSRR|=(1 << (12 + 16));
 		counter++;
-		if(counter < 8){
-			Delay(100000);
-		}
-		else if (counter == 8){
-			Delay(1000000);
-		}
 	}
+	
+	GPIOC->BSRR|=(1 << (6 + 16));
+	GPIOB->BSRR|=(1 << (5 + 16));
 }
+
+void removeFirst(void) {
+	
+	int counter = 0;
+	
+	GPIOC->BSRR|=(1 << (6));
+	GPIOB->BSRR|=(1 << (5));
+
+	while(counter != -1)
+	{		
+
+			GPIOC->BSRR|=(1<<(7)); 
+			GPIOB->BSRR|=(1<<(6)); 
+
+		if(counter == 8){
+			counter = -1;
+			continue;
+		}
+		
+		GPIOC->BSRR|=(1 << (12));
+		GPIOC->BSRR|=(1 << (12 + 16));
+		counter++;
+	}
+	
+	GPIOC->BSRR|=(1 << (6 + 16));
+	GPIOB->BSRR|=(1 << (5 + 16));
+
+}
+
 /*Inicializace RCC*/
 void RCC_Configuration(void){
 	RCC->CR|=0x10000; //HSE on
@@ -144,28 +297,34 @@ void RCC_Configuration(void){
   	{
   	}
 
-	RCC->APB2ENR|=0x1C; // Enable PA (0x4), PB (0x8), and PC (0x10).
+	RCC->APB2ENR|= (1 << 2) | (1 << 3) | (1 << 4) | (1 << 5); // Enable PA (2), PB (3), PC (4) and PD (5).
 		
 }
 /*Inicializace GPIO*/
 void GPIO_Configuration(void){
-	GPIOA->CRH &= ~(0xF << 16);		// Vycistit bity 16-19 (pro PA12)
-	GPIOA->CRH |= (3 << 16);	    // Nastavit PA12 jako PP output 50MHz
 	
-	GPIOC->CRH &= ~(0xF << 8);//PC10
-	GPIOC->CRH |= (3 << 8);  //PC10 jako PP output
-	
-	GPIOC->CRH &= ~(0xF << 12);//PC11
-	GPIOC->CRH |= (3 << 12);  //PC11 jako PP output
-	
-	GPIOB->CRL &= ~(0xF << 20);//PB5
-	GPIOB->CRL |= (3 << 20);  //PB5 jako PP output
-	
-	GPIOB->CRH &= ~(0xF << 4);//PB9
-	GPIOB->CRH |= (3 << 4);  //PB9 jako PP output
-	
-	GPIOC->CRH &= ~(0xF << 0);//PB8
-	GPIOC->CRH |= (3 << 0);  //PB8 jako PP output
+	// PA10 - Napajeni pro level displej
+	GPIOA->CRH &= ~(0xF << 8);
+	GPIOA->CRH |= (3 << 8);  // PP output
+	// PB5 - DSA pro pravej displej
+	GPIOB->CRL &= ~(0xF << 20);
+	GPIOB->CRL |= (3 << 20);  // PP output
+	// PB6 - DSA pro pravej displej
+	GPIOB->CRL &= ~(0xF << 24);
+	GPIOB->CRL |= (3 << 24);  // PP output
+	// PC6 - DSA pro levej displej
+	GPIOC->CRL &= ~(0xF << 24);
+	GPIOC->CRL |= (3 << 24);  // PP output
+	// PC7 - DSB pro level displej
+	GPIOC->CRL &= 0x0FFFFFFF;
+	GPIOC->CRL |= (3 << 28);  // PP output
+	// PC12 - Clock
+	GPIOC->CRH &= ~(0xF << 16);
+	GPIOC->CRH |= (3 << 16);  // PP output
+	// PD2 - Napajeni pro pravej displej
+	GPIOD->CRL &= ~(0xF << 8);
+	GPIOD->CRL |= (3 << 8);  // PP output
+
 }
 
 /*Delay smycka zpozduje zhruba o nCount tiku jadra*/
