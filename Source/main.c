@@ -71,7 +71,6 @@ int main(void) {
 	int counter = 0;
 	volatile uint32_t message = 0;
 	volatile uint32_t nextBit;
-	int multiplexCounter = 0;
 
 	RCC_Configuration(); //inicializace hodin
 	GPIO_Configuration(); //inicializace GPIO
@@ -100,17 +99,7 @@ int main(void) {
 
 	/*Nekonecna smycka*/
 	while (1) {
-		int modCount = (counter / 10) % 10;
-		int modModCount = (counter / 100) % 10;
-		int modModModCount = (counter / 1000) % 10;
-		displayMultiplex(modModModCount, modModCount, modCount, counter % 10);
-
-		// Multiplex bezi rychle, ale counter se inkrementuje az po ~100 cyklech (= ~1 sekunda)
-		multiplexCounter++;
-		if (multiplexCounter >= 100) {
-			multiplexCounter = 0;
-			counter++;
-		}
+		displayMultiplex(1, 2, 3, 4);
 	}
 }
 
