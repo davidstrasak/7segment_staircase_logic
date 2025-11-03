@@ -42,6 +42,8 @@
 #define Number9 (A_seg | B_seg | C_seg | D_seg | F_seg | G_seg)
 #define Number_OFF 0x00
 
+#define DEBOUNCE_COUNT 5  // Pocet cyklu pro debouncing
+
 /*Globalni promenne*/
 
 
@@ -52,6 +54,7 @@ void Delay(vu32 nCount);
 void setNumber(int leftInput, int rightInput);
 void removeFirst(void);
 void displayMultiplex(int leftNum1, int leftNum2, int rightNum1, int rightNum2);
+int debounceButton(int currentState, int* counter, int* lastState);
 
 /*Metody*/
 
@@ -71,6 +74,13 @@ int main(void) {
 	int counter = 0;
 	volatile uint32_t message = 0;
 	volatile uint32_t nextBit;
+	int debounceCounter1 = 0, lastState1 = 0;
+	int debounceCounter2 = 0, lastState2 = 0;
+	int debounceCounter3 = 0, lastState3 = 0;
+	int buttonRaw1, buttonRaw2, buttonRaw3;
+	int buttonIncrease, buttonDecrease, buttonStart;
+	int prevButton1 = 0, prevButton2 = 0, prevButton3 = 0;
+	int num1 = 0, num2 = 0, num3 = 0, num4 = 0;
 
 	RCC_Configuration(); //inicializace hodin
 	GPIO_Configuration(); //inicializace GPIO
@@ -96,10 +106,38 @@ int main(void) {
 
 	counter = 0;
 
-
 	/*Nekonecna smycka*/
 	while (1) {
-		displayMultiplex(1, 2, 3, 4);
+		/* Cteni stavu tlacitek (tlacitka jdou do zeme, takze 0 = zmacknuto) */
+		buttonRaw1 = (GPIOB->IDR & (1 << 7)) ? 1 : 0;  /* PB7 - 0 = zmacknuto */
+		buttonRaw2 = (GPIOB->IDR & (1 << 8)) ? 1 : 0;  /* PB8 - 0 = zmacknuto */
+		buttonRaw3 = (GPIOB->IDR & (1 << 9)) ? 1 : 0;  /* PB9 - 0 = zmacknuto */
+
+		/* Debounced tlacitka */
+		buttonIncrease = debounceButton(buttonRaw1, &debounceCounter1, &lastState1);
+		buttonDecrease = debounceButton(buttonRaw2, &debounceCounter2, &lastState2);
+		buttonStart = debounceButton(buttonRaw3, &debounceCounter3, &lastState3);
+
+		/* Detekce stisknuti (prechod z 1 na 0 = tlacitko zmacknuto) */
+		if (buttonIncrease == 0 && prevButton1 == 1) {
+			num1++;
+			if (num1 > 9) num1 = 0;
+		}
+		if (buttonDecrease == 0 && prevButton2 == 1) {
+			num2++;
+			if (num2 > 9) num2 = 0;
+		}
+		if (buttonStart == 0 && prevButton3 == 1) {
+			num3++;
+			if (num3 > 9) num3 = 0;
+		}
+
+		/* Ulozeni predchoziho stavu */
+		prevButton1 = buttonIncrease;
+		prevButton2 = buttonDecrease;
+		prevButton3 = buttonStart;
+
+		displayMultiplex(num1, num2, num3, num4);
 	}
 }
 
@@ -258,6 +296,29 @@ void removeFirst(void) {
 
 }
 
+/*Funkce pro debouncing tlacitka
+ *Vraci 1 pouze pokud tlacitko bylo stabilne stisknuto po dobu DEBOUNCE_COUNT cyklu
+ *currentState - aktualni stav tlacitka (1 = stisknuto, 0 = nestisknuto)
+ *counter - ukazatel na citac pro debouncing
+ *lastState - ukazatel na posledni potvrzeny stav
+*/
+int debounceButton(int currentState, int* counter, int* lastState) {
+	if (currentState == *lastState) {
+		// Stav se nezmenil, resetuj citac
+		*counter = 0;
+	}
+	else {
+		// Stav se zmenil, zacni pocitat
+		(*counter)++;
+		if (*counter >= DEBOUNCE_COUNT) {
+			// Stav je stabilni dostatecne dlouho
+			*lastState = currentState;
+			*counter = 0;
+		}
+	}
+	return *lastState;
+}
+
 /*Funkce pro multiplexovani 4 cisel na dvou blocich 7-segmentovek
  *leftNum1, leftNum2 = cisla pro levy blok (PA10)
  *rightNum1, rightNum2 = cisla pro pravy blok (PD2)
@@ -323,6 +384,15 @@ void GPIO_Configuration(void) {
 	// PB6 - DSA pro pravej displej
 	GPIOB->CRL &= ~(0xF << 24);
 	GPIOB->CRL |= (3 << 24);  // PP output
+	// PB7 - Tlacitko 1 (s externim pull-up)
+	GPIOB->CRL &= 0x0FFFFFFF;
+	GPIOB->CRL |= (0x4 << 28);  // Floating input
+	// PB8 - Tlacitko 2 (s externim pull-up)
+	GPIOB->CRH &= ~(0xF << 0);
+	GPIOB->CRH |= (0x4 << 0);  // Floating input
+	// PB9 - Tlacitko 3 (s externim pull-up)
+	GPIOB->CRH &= ~(0xF << 4);
+	GPIOB->CRH |= (0x4 << 4);  // Floating input
 	// PC6 - DSA pro levej displej
 	GPIOC->CRL &= ~(0xF << 24);
 	GPIOC->CRL |= (3 << 24);  // PP output
