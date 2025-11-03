@@ -101,15 +101,15 @@ int main(void){
 		GPIOA->BSRR|=(1 << (10+16));
 		GPIOD->BSRR|=(1 << (2));
 		setNumber(1,5);
-		Delay(1000000);
+		Delay(10);
 		removeFirst();
-		Delay(1000000);
+		//Delay(1000);
 		GPIOA->BSRR|=(1 << (10));
 		GPIOD->BSRR|=(1 << (2+16));
 		setNumber(8,8);
-		Delay(1000000);
+		Delay(10);
 		removeFirst();
-		Delay(1000000);
+		//Delay(1000);
 	}
 }
 
@@ -327,8 +327,11 @@ void GPIO_Configuration(void){
 
 }
 
-/*Delay smycka zpozduje zhruba o nCount tiku jadra*/
+/*Delay smycka zpozduje zhruba o nCount milisekund*/
 void Delay(vu32 nCount)
 {
-  for(; nCount != 0; nCount--);
+  for(; nCount != 0; nCount--) {
+			int i = 6000;
+			for(; i != 0; i--);
+	}
 }
