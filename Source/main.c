@@ -1,26 +1,12 @@
 //;***************************************************************************************************
-//;*
-//;* Misto			: CVUT FEL, Katedra Mereni
-//;* Prednasejici		: Doc. Ing. Jan Fischer,CSc.
-//;* Predmet			: A4B38NVS
-//;* Vyvojovy Kit		: STM32 VL DISCOVERY (STM32F100RB)
-//;*
-//;**************************************************************************************************
-//;*
-//;* JM�NO PROJEKTU	: Demo_01
-//;* AUTOR			: Radek ��pa
-//;* DATUM			: 11/2011
-//;* POPIS			: Program pro ovladani LED na vyvodu PC8 pomoci USER tlacitka na PA0.
-//;*					  - konfigurace hodin na frekvenci 24MHz (HSE + PLL) 
-//;*					  - konfigurace pouzitych vyvodu procesotu (PC8 jako push-pull vystup a tlacitka PA0 jako floating input)
-//;*					 
-//;*
+//;* CVUT FEL, Katedra Mereni
+//;* Predmet: A4B38NVS
+//;* Projekt: Schodistovy automat s 7-segmentovymi zobrazovaci
 //;***************************************************************************************************
 
-#include  "stm32f10x.h"
+#include "stm32f10x.h"
 
-
-/*Definice*/
+/* Definice segmentu pro 7-segmentovy displej */
 #define A_seg  (1 << 7) 
 #define B_seg  (1 << 6) 
 #define C_seg  (1 << 5) 
@@ -28,7 +14,7 @@
 #define E_seg  (1 << 3) 
 #define F_seg  (1 << 2) 
 #define G_seg  (1 << 1) 
-#define DP_seg  (1 << 0) 
+#define DP_seg (1 << 0) 
 
 #define Number0 (A_seg | B_seg | C_seg | D_seg | E_seg | F_seg)
 #define Number1 (B_seg | C_seg)
@@ -42,102 +28,164 @@
 #define Number9 (A_seg | B_seg | C_seg | D_seg | F_seg | G_seg)
 #define Number_OFF 0x00
 
-#define DEBOUNCE_COUNT 5  // Pocet cyklu pro debouncing
+#define DEBOUNCE_COUNT 5
+#define LONG_PRESS_TIME 50
+#define MULTIPLEX_CYCLES_PER_SEC 50
 
-/*Globalni promenne*/
+#define STATE_SETUP 0
+#define STATE_RUNNING 1
 
-
-/*Funkcni prototypy*/
+/* Funkcni prototypy */
 void RCC_Configuration(void);
 void GPIO_Configuration(void);
 void Delay(vu32 nCount);
 void setNumber(int leftInput, int rightInput);
-void removeFirst(void);
+void clearDisplay(void);
 void displayMultiplex(int leftNum1, int leftNum2, int rightNum1, int rightNum2);
 int debounceButton(int currentState, int* counter, int* lastState);
+void setLED(int state);
+void displayTime(int seconds, int* digit1, int* digit2);
 
-/*Metody*/
-
-
-/*System init
- *Volano z startup souboru
- *Metoda je prazdna aby se mohla provest inicializace v metode main.
- *Jinak se inicializace provadi v souboru system_stm32f10x.h
-
-*/
 void SystemInit(void) {
-	//Prazdna inicializacni metoda	
 }
 
-/*Main funkce*/
 int main(void) {
-	int counter = 0;
-	volatile uint32_t message = 0;
-	volatile uint32_t nextBit;
-	int debounceCounter1 = 0, lastState1 = 0;
-	int debounceCounter2 = 0, lastState2 = 0;
-	int debounceCounter3 = 0, lastState3 = 0;
-	int buttonRaw1, buttonRaw2, buttonRaw3;
-	int buttonIncrease, buttonDecrease, buttonStart;
-	int prevButton1 = 0, prevButton2 = 0, prevButton3 = 0;
-	int num1 = 0, num2 = 0, num3 = 0, num4 = 0;
+	int i;
+	int debounceCountIncrease = 0, debounceStateIncrease = 1;
+	int debounceCountDecrease = 0, debounceStateDecrease = 1;
+	int debounceCountConfirm = 0, debounceStateConfirm = 1;
+	int btnIncreaseRaw, btnDecreaseRaw, btnConfirmRaw;
+	int btnIncrease, btnDecrease, btnConfirm;
+	int prevBtnIncrease = 1, prevBtnDecrease = 1, prevBtnConfirm = 1;
+	int pressTimeIncrease = 0, pressTimeDecrease = 0;
+	int setTime = 10;
+	int remainingTime = 10;
+	int state = STATE_SETUP;
+	int secondCounter = 0;
+	int blinkCounter = 0;
+	int ledState = 0;
+	int leftDigit1, leftDigit2, rightDigit1, rightDigit2;
 
-	RCC_Configuration(); //inicializace hodin
-	GPIO_Configuration(); //inicializace GPIO
+	RCC_Configuration();
+	GPIO_Configuration();
 
-	GPIOA->BSRR |= (1 << (10));
-	GPIOD->BSRR |= (1 << (2));
+	GPIOA->BSRR |= (1 << 10);
+	GPIOD->BSRR |= (1 << 2);
 
-	while (counter < 15) {
-		// timhle bych dostal full sviticich ledek
-		//GPIOC->BSRR|=(1<<(10 + 16));
-
-		// timto bych mel dostat full nesviticich ledek
-		GPIOC->BSRR |= (1 << (6));
-		GPIOC->BSRR |= (1 << (7));
-		GPIOB->BSRR |= (1 << (5));
-		GPIOB->BSRR |= (1 << (6));
-
-		GPIOC->BSRR |= (1 << (12));
+	for (i = 0; i < 15; i++) {
+		GPIOC->BSRR |= (1 << 6);
+		GPIOC->BSRR |= (1 << 7);
+		GPIOB->BSRR |= (1 << 5);
+		GPIOB->BSRR |= (1 << 6);
+		GPIOC->BSRR |= (1 << 12);
 		GPIOC->BSRR |= (1 << (12 + 16));
-
-		counter++;
 	}
 
-	counter = 0;
-
-	/*Nekonecna smycka*/
 	while (1) {
-		/* Cteni stavu tlacitek (tlacitka jdou do zeme, takze 0 = zmacknuto) */
-		buttonRaw1 = (GPIOB->IDR & (1 << 7)) ? 1 : 0;  /* PB7 - 0 = zmacknuto */
-		buttonRaw2 = (GPIOB->IDR & (1 << 8)) ? 1 : 0;  /* PB8 - 0 = zmacknuto */
-		buttonRaw3 = (GPIOB->IDR & (1 << 9)) ? 1 : 0;  /* PB9 - 0 = zmacknuto */
+		btnIncreaseRaw = (GPIOB->IDR & (1 << 7)) ? 1 : 0;
+		btnDecreaseRaw = (GPIOB->IDR & (1 << 8)) ? 1 : 0;
+		btnConfirmRaw = (GPIOB->IDR & (1 << 9)) ? 1 : 0;
 
-		/* Debounced tlacitka */
-		buttonIncrease = debounceButton(buttonRaw1, &debounceCounter1, &lastState1);
-		buttonDecrease = debounceButton(buttonRaw2, &debounceCounter2, &lastState2);
-		buttonStart = debounceButton(buttonRaw3, &debounceCounter3, &lastState3);
+		btnIncrease = debounceButton(btnIncreaseRaw, &debounceCountIncrease, &debounceStateIncrease);
+		btnDecrease = debounceButton(btnDecreaseRaw, &debounceCountDecrease, &debounceStateDecrease);
+		btnConfirm = debounceButton(btnConfirmRaw, &debounceCountConfirm, &debounceStateConfirm);
 
-		/* Detekce stisknuti (prechod z 1 na 0 = tlacitko zmacknuto) */
-		if (buttonIncrease == 0 && prevButton1 == 1) {
-			num1++;
-			if (num1 > 9) num1 = 0;
+		if (state == STATE_SETUP) {
+			if (btnIncrease == 0) {
+				pressTimeIncrease++;
+
+				if (pressTimeIncrease == LONG_PRESS_TIME) {
+					setTime += 5;
+					if (setTime > 99) setTime = 99;
+				}
+				else if (pressTimeIncrease > LONG_PRESS_TIME) {
+					if ((pressTimeIncrease - LONG_PRESS_TIME) % MULTIPLEX_CYCLES_PER_SEC == 0) {
+						setTime += 5;
+						if (setTime > 99) setTime = 99;
+					}
+				}
+			}
+			else if (prevBtnIncrease == 0 && btnIncrease == 1) {
+				if (pressTimeIncrease < LONG_PRESS_TIME) {
+					setTime++;
+					if (setTime > 99) setTime = 99;
+				}
+				pressTimeIncrease = 0;
+			}
+
+			if (btnDecrease == 0) {
+				pressTimeDecrease++;
+
+				if (pressTimeDecrease == LONG_PRESS_TIME) {
+					setTime -= 5;
+					if (setTime < 1) setTime = 1;
+				}
+				else if (pressTimeDecrease > LONG_PRESS_TIME) {
+					if ((pressTimeDecrease - LONG_PRESS_TIME) % MULTIPLEX_CYCLES_PER_SEC == 0) {
+						setTime -= 5;
+						if (setTime < 1) setTime = 1;
+					}
+				}
+			}
+			else if (prevBtnDecrease == 0 && btnDecrease == 1) {
+				if (pressTimeDecrease < LONG_PRESS_TIME) {
+					setTime--;
+					if (setTime < 1) setTime = 1;
+				}
+				pressTimeDecrease = 0;
+			}
+
+			if (btnConfirm == 0 && prevBtnConfirm == 1) {
+				state = STATE_RUNNING;
+				remainingTime = setTime;
+				secondCounter = 0;
+				blinkCounter = 0;
+				setLED(1);
+				ledState = 1;
+			}
+
+			remainingTime = setTime;
 		}
-		if (buttonDecrease == 0 && prevButton2 == 1) {
-			num2++;
-			if (num2 > 9) num2 = 0;
-		}
-		if (buttonStart == 0 && prevButton3 == 1) {
-			num3++;
-			if (num3 > 9) num3 = 0;
+		else {
+			secondCounter++;
+			if (secondCounter >= MULTIPLEX_CYCLES_PER_SEC / 2) {
+				secondCounter = 0;
+				blinkCounter++;
+
+				if (blinkCounter >= 2) {
+					blinkCounter = 0;
+					remainingTime--;
+
+					if (remainingTime <= 0) {
+						remainingTime = setTime;
+						state = STATE_SETUP;
+						setLED(0);
+						ledState = 0;
+					}
+				}
+
+				if (remainingTime <= 3 && remainingTime > 0) {
+					ledState = !ledState;
+					setLED(ledState);
+				}
+			}
+
+			if (btnConfirm == 0 && prevBtnConfirm == 1) {
+				state = STATE_SETUP;
+				remainingTime = setTime;
+				blinkCounter = 0;
+				setLED(0);
+				ledState = 0;
+			}
 		}
 
-		/* Ulozeni predchoziho stavu */
-		prevButton1 = buttonIncrease;
-		prevButton2 = buttonDecrease;
-		prevButton3 = buttonStart;
+		prevBtnIncrease = btnIncrease;
+		prevBtnDecrease = btnDecrease;
+		prevBtnConfirm = btnConfirm;
 
-		displayMultiplex(num1, num2, num3, num4);
+		displayTime(setTime, &leftDigit1, &leftDigit2);
+		displayTime(remainingTime, &rightDigit1, &rightDigit2);
+		displayMultiplex(leftDigit1, leftDigit2, rightDigit1, rightDigit2);
 	}
 }
 
@@ -268,50 +316,29 @@ void setNumber(int leftInput, int rightInput)
 	GPIOB->BSRR |= (1 << (5 + 16));
 }
 
-void removeFirst(void) {
+void clearDisplay(void) {
+	int i;
+	GPIOC->BSRR |= (1 << 6);
+	GPIOB->BSRR |= (1 << 5);
 
-	int counter = 0;
-
-	GPIOC->BSRR |= (1 << (6));
-	GPIOB->BSRR |= (1 << (5));
-
-	while (counter != -1)
-	{
-
-		GPIOC->BSRR |= (1 << (7));
-		GPIOB->BSRR |= (1 << (6));
-
-		if (counter == 8) {
-			counter = -1;
-			continue;
-		}
-
-		GPIOC->BSRR |= (1 << (12));
+	for (i = 0; i < 8; i++) {
+		GPIOC->BSRR |= (1 << 7);
+		GPIOB->BSRR |= (1 << 6);
+		GPIOC->BSRR |= (1 << 12);
 		GPIOC->BSRR |= (1 << (12 + 16));
-		counter++;
 	}
 
 	GPIOC->BSRR |= (1 << (6 + 16));
 	GPIOB->BSRR |= (1 << (5 + 16));
-
 }
 
-/*Funkce pro debouncing tlacitka
- *Vraci 1 pouze pokud tlacitko bylo stabilne stisknuto po dobu DEBOUNCE_COUNT cyklu
- *currentState - aktualni stav tlacitka (1 = stisknuto, 0 = nestisknuto)
- *counter - ukazatel na citac pro debouncing
- *lastState - ukazatel na posledni potvrzeny stav
-*/
 int debounceButton(int currentState, int* counter, int* lastState) {
 	if (currentState == *lastState) {
-		// Stav se nezmenil, resetuj citac
 		*counter = 0;
 	}
 	else {
-		// Stav se zmenil, zacni pocitat
 		(*counter)++;
 		if (*counter >= DEBOUNCE_COUNT) {
-			// Stav je stabilni dostatecne dlouho
 			*lastState = currentState;
 			*counter = 0;
 		}
@@ -319,25 +346,34 @@ int debounceButton(int currentState, int* counter, int* lastState) {
 	return *lastState;
 }
 
-/*Funkce pro multiplexovani 4 cisel na dvou blocich 7-segmentovek
- *leftNum1, leftNum2 = cisla pro levy blok (PA10)
- *rightNum1, rightNum2 = cisla pro pravy blok (PD2)
- *Provede jeden kompletni cyklus multiplexovani
-*/
+void setLED(int state) {
+	if (state) {
+		GPIOC->BSRR |= (1 << 8);
+	}
+	else {
+		GPIOC->BSRR |= (1 << (8 + 16));
+	}
+}
+
+void displayTime(int seconds, int* digit1, int* digit2) {
+	*digit1 = seconds / 10;
+	*digit2 = seconds % 10;
+}
+
 void displayMultiplex(int leftNum1, int leftNum2, int rightNum1, int rightNum2) {
 	// Zobrazeni praveho bloku (PD2 aktivni)
 	GPIOA->BSRR |= (1 << 10);         // PA10 high - vypni levy blok
 	GPIOD->BSRR |= (1 << (2 + 16));   // PD2 low - zapni pravy blok
 	setNumber(leftNum1, rightNum1);
 	Delay(10);
-	removeFirst();
+	clearDisplay();
 
 	// Zobrazeni leveho bloku (PA10 aktivni)
 	GPIOA->BSRR |= (1 << (10 + 16));  // PA10 low - zapni levy blok
 	GPIOD->BSRR |= (1 << 2);          // PD2 high - vypni pravy blok
 	setNumber(leftNum2, rightNum2);
 	Delay(10);
-	removeFirst();
+	clearDisplay();
 }
 
 /*Inicializace RCC*/
@@ -369,50 +405,51 @@ void RCC_Configuration(void) {
 	{
 	}
 
-	RCC->APB2ENR |= (1 << 2) | (1 << 3) | (1 << 4) | (1 << 5); // Enable PA (2), PB (3), PC (4) and PD (5).
-
+	RCC->APB2ENR |= (1 << 2) | (1 << 3) | (1 << 4) | (1 << 5);
 }
+
 /*Inicializace GPIO*/
 void GPIO_Configuration(void) {
-
 	// PA10 - Napajeni pro level displej
 	GPIOA->CRH &= ~(0xF << 8);
 	GPIOA->CRH |= (3 << 8);  // PP output
 	// PB5 - DSA pro pravej displej
 	GPIOB->CRL &= ~(0xF << 20);
 	GPIOB->CRL |= (3 << 20);  // PP output
-	// PB6 - DSA pro pravej displej
+	// PB6 - DSB pro pravej displej
 	GPIOB->CRL &= ~(0xF << 24);
 	GPIOB->CRL |= (3 << 24);  // PP output
-	// PB7 - Tlacitko 1 (s externim pull-up)
+	// PB7 - Tlacitko INCREASE (s externim pull-up)
 	GPIOB->CRL &= 0x0FFFFFFF;
 	GPIOB->CRL |= (0x4 << 28);  // Floating input
-	// PB8 - Tlacitko 2 (s externim pull-up)
+	// PB8 - Tlacitko DECREASE (s externim pull-up)
 	GPIOB->CRH &= ~(0xF << 0);
 	GPIOB->CRH |= (0x4 << 0);  // Floating input
-	// PB9 - Tlacitko 3 (s externim pull-up)
+	// PB9 - Tlacitko CONFIRM (s externim pull-up)
 	GPIOB->CRH &= ~(0xF << 4);
 	GPIOB->CRH |= (0x4 << 4);  // Floating input
-	// PC6 - DSA pro levej displej
+	// PC6 - DSA pro levy displej
 	GPIOC->CRL &= ~(0xF << 24);
 	GPIOC->CRL |= (3 << 24);  // PP output
-	// PC7 - DSB pro level displej
+	// PC7 - DSB pro levy displej
 	GPIOC->CRL &= 0x0FFFFFFF;
 	GPIOC->CRL |= (3 << 28);  // PP output
+	// PC8 - LED pro simulaci rele
+	GPIOC->CRH &= ~(0xF << 0);
+	GPIOC->CRH |= (3 << 0);  // PP output
 	// PC12 - Clock
 	GPIOC->CRH &= ~(0xF << 16);
 	GPIOC->CRH |= (3 << 16);  // PP output
 	// PD2 - Napajeni pro pravej displej
 	GPIOD->CRL &= ~(0xF << 8);
 	GPIOD->CRL |= (3 << 8);  // PP output
-
 }
 
 /*Delay smycka zpozduje zhruba o nCount milisekund*/
 void Delay(vu32 nCount)
 {
+	int i;
 	for (; nCount != 0; nCount--) {
-		int i = 6000;
-		for (; i != 0; i--);
+		for (i = 6000; i != 0; i--);
 	}
 }
