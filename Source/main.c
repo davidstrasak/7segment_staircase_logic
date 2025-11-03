@@ -184,7 +184,15 @@ int main(void) {
 		prevBtnConfirm = btnConfirm;
 
 		displayTime(setTime, &leftDigit1, &leftDigit2);
-		displayTime(remainingTime, &rightDigit1, &rightDigit2);
+		switch (state) {
+		case STATE_SETUP:
+			displayTime(0, &rightDigit1, &rightDigit2);
+			break;
+		case STATE_RUNNING:
+			displayTime(remainingTime, &rightDigit1, &rightDigit2);
+			break;
+		}
+
 		displayMultiplex(leftDigit1, leftDigit2, rightDigit1, rightDigit2);
 	}
 }
